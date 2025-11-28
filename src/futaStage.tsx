@@ -46,3 +46,4 @@ export class NewStage extends StageBase<InitStateType, ChatStateType, MessageSta
     return <div></div>;
   }
 }
+
