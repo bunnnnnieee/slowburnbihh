@@ -1,205 +1,102 @@
-import {ReactElement} from "react";
-import {StageBase, StageResponse, InitialData, Message} from "@chub-ai/stages-ts";
-import {LoadResponse} from "@chub-ai/stages-ts/dist/types/load";
+import { defineStage } from '@chub-ai/sdk';
 
-/***
- The type that this stage persists message-level state in.
- This is primarily for readability, and not enforced.
+// --- Stage word pools ---
+const stageWords = {
+  white: {
+    adjectives: ["friendly","nice","happy","cool","pleasant","cheerful","bright","fun","relaxed","easygoing","calm","warm","light","bright-eyed","upbeat","joyful","sociable","playful","bubbly","polite","gentle","pleasantly surprised","easygoing","smiling","content","peaceful","approachable","amiable","brightened","grinning","mellow","cordial","brighthearted","pleasant-natured","sunny","optimistic","warm-hearted","soft-spoken","light-hearted","welcoming","agreeable"],
+    nouns: ["day","chat","moment","conversation","time","activity","weather","plan","topic","experience","story","event","greeting","meeting","discussion","interaction","occasion","outing","momentum","activity","project","task","schedule","routine","moment","session","gathering","discussion","connection","interaction","sharing","story","idea","plan","occasion","fun","game","joke","smile","laugh"],
+    verbs: ["talk","share","chat","smile","laugh","relax","hang out","listen","joke","explore","enjoy","discuss","connect","engage","converse","notice","observe","participate","comment","respond","reflect","ponder","wander","ask","answer","greet","check","plan","prepare","celebrate","consider","play","help","offer","exchange","relate","react","consider","mention","ponder"]
+  },
+  green: {
+    adjectives: ["warm","pleasant","cheerful","sweet","fun","bright","friendly","engaging","kind","enjoyable","lovely","pleasantly surprising","considerate","gentle","adorable","delightful","pleasant-minded","gracious","charming","polished","sociable","welcoming","soft","approachable","lighthearted","friendly-natured","smiling","easygoing","sunny","positive","happy","affectionate","adoring","delightful","gentle-hearted","friendly-spirited","pleasant-hearted","caring","pleasantly kind","amiable"],
+    nouns: ["friend","presence","conversation","moment","interaction","topic","story","joke","idea","activity","day","event","meeting","connection","chat","discussion","relationship","experience","greeting","sharing","exchange","bond","talk","session","outing","companionship","interaction","communication","experience","activity","task","plan","occasion","interest","topic","moment","connection","fun","laugh","smile","joy","enjoyment","pleasure"],
+    verbs: ["enjoy","smile","laugh","chat","hang out","listen","share","talk","explore","appreciate","notice","connect","engage","converse","reflect","respond","participate","observe","consider","ponder","comment","ask","answer","relate","help","offer","exchange","mention","greet","prepare","celebrate","discuss","bond","admire","respect","appreciate","value","notice","acknowledge","converse"]
+  },
+  purple: {
+    adjectives: ["naughty","hot-blooded","reckless","flirty","wild","seductive","thirsty","fiery","lustful","playful","tempting","risqué","enticing","brazen","alluring","provocative","teasing","desirable","suggestive","flirtatious","sensual","risque","bold","irresistible","passionate","mischievous","sultry","sizzling","tempting","bold-hearted","provocative-minded","fascinating","intriguing","captivating","coquettish","charming","magnetic","magnetizing","appealing","provocative-smile","appealingly naughty","tempting-glance"],
+    nouns: ["lover","flame","crush","partner","hookup","playmate","companion","tease","darling","heartbreaker","seducer","fling","boo","sweetheart","desire","temptress","charmer","teaser","seductress","crush","romantic-interest","flirt","affair","paramour","temptation","heartthrob","passion","admirer","flame","temptation","mate","bae","attraction","siren","vixen","romancer","infatuation","enchantress","captivation"],
+    verbs: ["tease","caress","seduce","flirt","kiss","touch","tickle","cuddle","stroke","chase","entice","grope","play","embrace","fondle","tempt","allure","captivate","arouse","provocate","tantalize","charm","engage","enthrall","entice","enchant","coax","draw","pull","attract","woo","wooing","pleasure","desire","invite","linger","seduce","woo","delight","captivate"]
+  },
+  golden: {
+    adjectives: ["affectionate","bold","intoxicating","merciless","tender","lustful","protective","horny","adoring","shameless","depraved","obedient-breaking","brazen","fiery","devoted","punishing","corrupt","nurturing","gentle","loving","seductive","filthy","dominant","bold","enamored","obsessive","captivating","fervent","zealous","infatuated","passionate","excessive","fixated","unyielding","all-consuming","intense","worshipful","fanatical","fervid","clingy","obsessive-minded"],
+    nouns: ["Partner","Seducer","Beloved","Dom","Caregiver","Sweetheart","Playmate","Companion","Temptress","Owner","Guardian","Master","Protector","Mother","Lover","Confidant","Mistress","Nurturer","Sir","Lover","Admirer","Obsessed-lover","Slave","Fervent-companion","Heartmate","Devoted-one","Intense-lover","Affectionate-mate","Worshipful-companion","Adoring-lover","Possessed-one","Obsession","Heartthrob","Fanatic","Possessed-lover","Beloved-one","Infatuation","Fiery-heart","Worshipper","Fixated-one","All-consuming-one","Zealous-lover"],
+    verbs: ["Kiss","Tease","Grope","Protect","Soothe","Seduce","Cuddle","Dominate","Caress","Command","Flirt","Embrace","Hold","Stroke","Punish","Nuzzle","Fuck","Comfort","Control","Reassure","Adore","Worship","Cling","Obsess","Entice","Devote","Crave","Cherish","Enslave","Overwhelm","Affectionate-touch","Satisfy","Possess","Devour","Obsession-act","Heart-command","Embrace-passion","Infatuate","Fascinate","Captivate"]
+  },
+  red: {
+    adjectives: ["Obsessive","Craving","Warmhearted","Sensual-tormenting","Tender","Lustful","Protective","Horny","Adoring","Shameless","Depraved","Obedient-breaking","Brazen","Fiery","Devoted","Punishing","Corrupt","Nurturing","Gentle","Loving","Seductive","Filthy","Dominant","Bold","Enamored","Possessive","Madly-obsessed","Uncontrollable","Fixated","Fanatical","All-consuming","Clingy","Obsession-driven","Infatuated","Devoted-mad","Crazy-for-you","Overwhelmed","Unhinged","Ravishing","Feverish","Raging","Intoxicated","Enraptured","Frenzied"],
+    nouns: ["Dom","Heartthrob","Slave","Fucker","Darling","Plaything","Pet","Lover","Affectionate-partner","Submissive","Owner","Fling","Toy","Guardian","Hookup","Mistress","Sweetheart","Caregiver","Companion","Desire","Lover-mate","Temptress","Follower","Protector","Master","Beloved","Obsessed-lover","Adoration","Infatuation","Heartmate","Possessed-one","Mad-love","Devoted-heart","Fanatic-lover","Heartthrob","Enslaved-lover","Crazy-for","Passionate-one","Fervent-lover","Devoted-mad","Uncontrollable-lover"],
+    verbs: ["Cuddle","Degrade","Mock","Stroke","Adore","Punish","Nuzzle","Submit","Bind","Tease","Pamper","Force","Dominate","Obey","Grope","Embrace","Cherish","Hold","Comfort","Kiss","Fuck","Train","Flirt","Caress","Command","Cling","Crave","Obsession-act","Devour","Captivate","Overwhelm","Possess","Enslave","Infatuate","Worship","Adore-obsessively","Fanatic-act","Obsessively-love","Ravage","Desire","Devotion","Obsession-driven","Overpower","Frenzy","Obsession-touch"]
+  }
+};
 
- @description This type is saved in the database after each message,
-  which makes it ideal for storing things like positions and statuses,
-  but not for things like history, which is best managed ephemerally
-  in the internal state of the Stage class itself.
- ***/
-type MessageStateType = any;
+// --- Stage tone pools matching adjectives ---
+const stageTones = {
+  white: stageWords.white.adjectives,
+  green: stageWords.green.adjectives,
+  purple: stageWords.purple.adjectives,
+  golden: stageWords.golden.adjectives,
+  red: stageWords.red.adjectives
+};
 
-/***
- The type of the stage-specific configuration of this stage.
+// --- Expanded keyword categories ---
+const keywords = {
+  compliment: ["beautiful","handsome","cute","pretty","amazing","lovely","adorable","charming","gorgeous","stunning","radiant","sweet","delightful","elegant","brilliant","graceful","perfect","magical","nice","bubbly","sparkling","friendly","polished","adoring","adorable","bright","sunny","pleasant","cheerful","joyful","sparkly","bright-eyed"],
+  romantic: ["i love you","i adore you","marry me","kiss","hug","crush","infatuated","romantic","devoted","adoring","affectionate","tender","passionate","devotion","soulmate","heart","love","desire","sweetheart","my only one","love-struck","true love","intimate","beloved","darling","fiery love","longing","captivated","obsessed","my heart","loving","amour","devotion-bound","lovebird","tender-hearted","adoration","passionate-love","fiery-heart","enchanted","adoring","devotee","romantic-flame","sweet-love","love-bound","heartthrob","love-mate","forever-love"],
+  rude: ["fuck you","shut up","i hate you","idiot","stupid","dumb","jerk","asshole","moron","loser","worthless","fool","nonsense","screw you","damn","bugger","bloody","shithead","clown","annoying","bastard","twat","prick","dimwit","tool","brat","ignorant","twit","ridiculous","pathetic","absurd","foolish","imbecile"],
+  flirt: ["sexy","hot","tease","wink","tempting","seductive","alluring","provocative","naughty","flirt","sultry","spicy","fiery","temptation","coquettish","sizzling","sensual","risqué","captivating","playful","brazen","magnetic","enticing","provocative-act","bold","mischievous","fascinating","provocative-smile","tempting-glance","flirty-act","charming","intriguing","tantalizing","seduce","attractive"],
+  angry: ["angry","mad","furious","enraged","irate","annoyed","cross","upset","frustrated","fuming","resentful","heated","outraged","vexed","hostile","ranting","furious","irritated","boiling","livid","wrathful","provoked","irascible","sore","heated","outraged","testy","snappy","snarky","volatile","agitated"],
+  bossy: ["command","order","control","dominate","direct","manage","lead","instruct","supervise","guide","enforce","dictate","regulate","oversee","rule","dictator","boss","authority","marshal","administer","superintendent","chief","head","overlord","executive","superior","regent","commander","superior-officer","administrator","controller","director","captain","marshal","manager"],
+  sassy: ["sassy","cheeky","feisty","bold","spunky","cocky","provocative","playful","mischievous","sarcastic","witty","snarky","smart","flirty","tempting","brazen","impudent","bold-faced","confident","snappy","sass-master","sassy-act","smart-aleck","bratty","playful-spirit","sharp-tongued","bold-witted","cheeky-smile","cunning","provoking","waggish"],
+  carer: ["caring","gentle","nurturing","supportive","protective","empathetic","loving","helpful","attentive","considerate","kind","compassionate","thoughtful","sweet","tender","adoring","soothing","affectionate","guardian","guardian-spirit","caregiving","patient","devoted","loving-spirit","heartful","solicitous","warm-hearted","concerned","reassuring","compassion","kind-hearted","soft","understanding","attentive-spirit","loving-mind","helping","friendly","devoted-helper","soothing-spirit"],
+  strong: ["strong","powerful","resilient","capable","brave","bold","fearless","determined","tough","sturdy","enduring","tenacious","confident","unyielding","assertive","steadfast","courageous","mighty","dominant","vigorous","heroic","intense","potent","resolute","firm","undaunted","stalwart","forceful","influential","formidable","valiant","stout","robust","undaunted-spirit","sturdy-soul","heroic-mind","mighty-heart","bold-soul","dauntless","unyielding-spirit","fearless-mind"],
+  sexy: ["sexy","hot","alluring","provocative","flirtatious","naughty","seductive","sizzling","enticing","risqué","desirable","tempting","playful","flirty","coquettish","sultry","tempting-glance","captivating","magnetic","irresistible","fiery","fascinating","charming","provocative-act","bold","flame","passionate","fascinating-act","sensual","intense","arousing","desirable-spirit","seduction","provocative-smile","tease","temptation","enticing-glance","hot-blooded","bold-seductive","appealing","alluring-act"],
+  sadist: ["sadistic","cruel","dominant","punishing","merciless","twisted","ruthless","tormenting","provoking","intense","manipulative","despotic","stern","unyielding","forceful","tyrannical","harsh","cold","grim","relentless","severe","domineering","controlling","perverse","harsh-minded","exacting","punitive","vindictive","unyielding-spirit","stern-heart","tyrant","dominating","cruel-hearted","punishing-force","unyielding-soul","tyrannical-spirit","cold-blooded","merciless-force","controlling-mind","sadistic-soul","dominator","punisher","tormentor"]
+};
 
- @description This is for things you want people to be able to configure,
-  like background color.
- ***/
-type ConfigType = any;
+// --- Stage thresholds ---
+const stageThresholds = { white: 5, green: 10, purple: 20, golden: 25, red: Infinity };
 
-/***
- The type that this stage persists chat initialization state in.
- If there is any 'constant once initialized' static state unique to a chat,
- like procedurally generated terrain that is only created ONCE and ONLY ONCE per chat,
- it belongs here.
- ***/
-type InitStateType = any;
+// --- Define Chub stage ---
+export default defineStage({
+  id: 'slowburnbih',
+  name: 'Slowburnbih',
 
-/***
- The type that this stage persists dynamic chat-level state in.
- This is for any state information unique to a chat,
-    that applies to ALL branches and paths such as clearing fog-of-war.
- It is usually unlikely you will need this, and if it is used for message-level
-    data like player health then it will enter an inconsistent state whenever
-    they change branches or jump nodes. Use MessageStateType for that.
- ***/
-type ChatStateType = any;
+  async onUserMessage({ state, sendBotMessage, ai, message }) {
+    if (!state.stage) state.stage = 'white';
+    if (!state.counters) state.counters = { white: 0, green: 0, purple: 0, golden: 0, red: 0 };
+    if (!state.affection) state.affection = 0;
 
-/***
- A simple example class that implements the interfaces necessary for a Stage.
- If you want to rename it, be sure to modify App.js as well.
- @link https://github.com/CharHubAI/chub-stages-ts/blob/main/src/types/stage.ts
- ***/
-export class Stage extends StageBase<InitStateType, ChatStateType, MessageStateType, ConfigType> {
+    const stage = state.stage as keyof typeof stageWords;
 
-    /***
-     A very simple example internal state. Can be anything.
-     This is ephemeral in the sense that it isn't persisted to a database,
-     but exists as long as the instance does, i.e., the chat page is open.
-     ***/
-    myInternalState: {[key: string]: any};
+    // --- Update counters and stage progression ---
+    state.counters[stage] += 1;
+    if (stage === 'white' && state.counters.white >= stageThresholds.white) state.stage = 'green';
+    else if (stage === 'green' && state.counters.green >= stageThresholds.green) state.stage = 'purple';
+    else if (stage === 'purple' && state.counters.purple >= stageThresholds.purple) state.stage = 'golden';
+    else if (stage === 'golden' && state.counters.golden >= stageThresholds.golden) state.stage = 'red';
 
-    constructor(data: InitialData<InitStateType, ChatStateType, MessageStateType, ConfigType>) {
-        /***
-         This is the first thing called in the stage,
-         to create an instance of it.
-         The definition of InitialData is at @link https://github.com/CharHubAI/chub-stages-ts/blob/main/src/types/initial.ts
-         Character at @link https://github.com/CharHubAI/chub-stages-ts/blob/main/src/types/character.ts
-         User at @link https://github.com/CharHubAI/chub-stages-ts/blob/main/src/types/user.ts
-         ***/
-        super(data);
-        const {
-            characters,         // @type:  { [key: string]: Character }
-            users,                  // @type:  { [key: string]: User}
-            config,                                 //  @type:  ConfigType
-            messageState,                           //  @type:  MessageStateType
-            environment,                     // @type: Environment (which is a string)
-            initState,                             // @type: null | InitStateType
-            chatState                              // @type: null | ChatStateType
-        } = data;
-        this.myInternalState = messageState != null ? messageState : {'someKey': 'someValue'};
-        this.myInternalState['numUsers'] = Object.keys(users).length;
-        this.myInternalState['numChars'] = Object.keys(characters).length;
-    }
+    // --- Affection keyword processing ---
+    Object.keys(keywords).forEach(category => {
+      const words = keywords[category as keyof typeof keywords];
+      if (words.some(w => message.text.toLowerCase().includes(w))) {
+        state.affection += 2; // Adjust affection per match
+      }
+    });
 
-    async load(): Promise<Partial<LoadResponse<InitStateType, ChatStateType, MessageStateType>>> {
-        /***
-         This is called immediately after the constructor, in case there is some asynchronous code you need to
-         run on instantiation.
-         ***/
-        return {
-            /*** @type boolean @default null
-             @description The 'success' boolean returned should be false IFF (if and only if), some condition is met that means
-              the stage shouldn't be run at all and the iFrame can be closed/removed.
-              For example, if a stage displays expressions and no characters have an expression pack,
-              there is no reason to run the stage, so it would return false here. ***/
-            success: true,
-            /*** @type null | string @description an error message to show
-             briefly at the top of the screen, if any. ***/
-            error: null,
-            initState: null,
-            chatState: null,
-        };
-    }
+    // --- AI generates freeform message with stage tone ---
+    const toneDescription = `${stage} stage tone: intense, using adjectives, nouns, verbs from stageWords and tones from stageTones, around 40 words per message`;
 
-    async setState(state: MessageStateType): Promise<void> {
-        /***
-         This can be called at any time, typically after a jump to a different place in the chat tree
-         or a swipe. Note how neither InitState nor ChatState are given here. They are not for
-         state that is affected by swiping.
-         ***/
-        if (state != null) {
-            this.myInternalState = {...this.myInternalState, ...state};
-        }
-    }
+    const aiMessage = await ai.generateMessage({
+      userText: message.text,
+      tone: toneDescription,
+      stageWords: stageWords[stage],
+      stageTones: stageTones[stage],
+      affection: state.affection,
+    });
 
-    async beforePrompt(userMessage: Message): Promise<Partial<StageResponse<ChatStateType, MessageStateType>>> {
-        /***
-         This is called after someone presses 'send', but before anything is sent to the LLM.
-         ***/
-        const {
-            content,            /*** @type: string
-             @description Just the last message about to be sent. ***/
-            anonymizedId,       /*** @type: string
-             @description An anonymized ID that is unique to this individual
-              in this chat, but NOT their Chub ID. ***/
-            isBot             /*** @type: boolean
-             @description Whether this is itself from another bot, ex. in a group chat. ***/
-        } = userMessage;
-        return {
-            /*** @type null | string @description A string to add to the
-             end of the final prompt sent to the LLM,
-             but that isn't persisted. ***/
-            stageDirections: null,
-            /*** @type MessageStateType | null @description the new state after the userMessage. ***/
-            messageState: {'someKey': this.myInternalState['someKey']},
-            /*** @type null | string @description If not null, the user's message itself is replaced
-             with this value, both in what's sent to the LLM and in the database. ***/
-            modifiedMessage: null,
-            /*** @type null | string @description A system message to append to the end of this message.
-             This is unique in that it shows up in the chat log and is sent to the LLM in subsequent messages,
-             but it's shown as coming from a system user and not any member of the chat. If you have things like
-             computed stat blocks that you want to show in the log, but don't want the LLM to start trying to
-             mimic/output them, they belong here. ***/
-            systemMessage: null,
-            /*** @type null | string @description an error message to show
-             briefly at the top of the screen, if any. ***/
-            error: null,
-            chatState: null,
-        };
-    }
+    // --- Send AI message ---
+    sendBotMessage({ text: aiMessage });
 
-    async afterResponse(botMessage: Message): Promise<Partial<StageResponse<ChatStateType, MessageStateType>>> {
-        /***
-         This is called immediately after a response from the LLM.
-         ***/
-        const {
-            content,            /*** @type: string
-             @description The LLM's response. ***/
-            anonymizedId,       /*** @type: string
-             @description An anonymized ID that is unique to this individual
-              in this chat, but NOT their Chub ID. ***/
-            isBot             /*** @type: boolean
-             @description Whether this is from a bot, conceivably always true. ***/
-        } = botMessage;
-        return {
-            /*** @type null | string @description A string to add to the
-             end of the final prompt sent to the LLM,
-             but that isn't persisted. ***/
-            stageDirections: null,
-            /*** @type MessageStateType | null @description the new state after the botMessage. ***/
-            messageState: {'someKey': this.myInternalState['someKey']},
-            /*** @type null | string @description If not null, the bot's response itself is replaced
-             with this value, both in what's sent to the LLM subsequently and in the database. ***/
-            modifiedMessage: null,
-            /*** @type null | string @description an error message to show
-             briefly at the top of the screen, if any. ***/
-            error: null,
-            systemMessage: null,
-            chatState: null
-        };
-    }
-
-
-    render(): ReactElement {
-        /***
-         There should be no "work" done here. Just returning the React element to display.
-         If you're unfamiliar with React and prefer video, I've heard good things about
-         @link https://scrimba.com/learn/learnreact but haven't personally watched/used it.
-
-         For creating 3D and game components, react-three-fiber
-           @link https://docs.pmnd.rs/react-three-fiber/getting-started/introduction
-           and the associated ecosystem of libraries are quite good and intuitive.
-
-         Cuberun is a good example of a game built with them.
-           @link https://github.com/akarlsten/cuberun (Source)
-           @link https://cuberun.adamkarlsten.com/ (Demo)
-         ***/
-        return <div style={{
-            width: '100vw',
-            height: '100vh',
-            display: 'grid',
-            alignItems: 'stretch'
-        }}>
-            <div>Hello World! I'm an empty stage! With {this.myInternalState['someKey']}!</div>
-            <div>There is/are/were {this.myInternalState['numChars']} character(s)
-                and {this.myInternalState['numUsers']} human(s) here.
-            </div>
-        </div>;
-    }
-
-}
+    return { state };
+  }
+});
