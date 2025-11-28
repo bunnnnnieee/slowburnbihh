@@ -9,6 +9,17 @@ type ChatStateType = any;
 
 export class Stage extends StageBase<InitStateType, ChatStateType, MessageStateType, ConfigType> {
   myInternalState: { [key: string]: any };
+  // Keywords that indicate the user is asking about a secret (e.g., futanari)
+  secretKeywords: string[] = [
+    'secret',
+    'futa',
+    "i'm futa",
+    'i am futa',
+    "she's futa",
+    'she is futa',
+    "they're futa",
+    'they are futa'
+  ];
 
   constructor(data: InitialData<InitStateType, ChatStateType, MessageStateType, ConfigType>) {
     super(data);
@@ -65,7 +76,9 @@ export class Stage extends StageBase<InitStateType, ChatStateType, MessageStateT
     const { content } = userMessage;
 
     // --- Stage progression counters ---
-    const stageThresholds = { white: 10, green: 25, purple: 45, golden: 65, red: Infinity };
+    // NOTE: `red` was Infinity which makes it unreachable; set a concrete threshold so
+    // the stage can progress to 'red' in practice. Adjust as needed.
+    const stageThresholds = { white: 10, green: 25, purple: 45, golden: 65, red: 85 };
     const stage = this.myInternalState.stage;
     this.myInternalState.counters[stage] += 1;
 
@@ -94,8 +107,15 @@ export class Stage extends StageBase<InitStateType, ChatStateType, MessageStateT
     });
 
     // --- Secret logic ---
+    // Block and filter out secret-related queries until the user reaches the 'red' stage.
+    // Add any keywords here that indicate the user is asking about the character's secret.
+    const contentLower = content.toLowerCase();
+    const isSecretQuery = this.secretKeywords.some(w => contentLower.includes(w));
+
     let modifiedMessage = content;
-    if (this.myInternalState.stage !== 'purple' && content.toLowerCase().includes('secret')) {
+    // disallow reveal until stage === 'purple' (allows reveal starting at purple/golden/red)
+    const allowedRevealStages = ['purple', 'golden', 'red'];
+    if (isSecretQuery && !allowedRevealStages.includes(this.myInternalState.stage)) {
       modifiedMessage = "I can't tell you that yet.";
     }
 
@@ -110,10 +130,22 @@ export class Stage extends StageBase<InitStateType, ChatStateType, MessageStateT
   }
 
   async afterResponse(botMessage: Message): Promise<Partial<StageResponse<ChatStateType, MessageStateType>>> {
+    // --- Post-response filter ---
+    // Prevent the bot from revealing secrets prematurely if the model composes an answer
+    // mentioning secret keywords before we reach the 'red' stage.
+    const botContent = botMessage?.content?.toString() || '';
+    const botLower = botContent.toLowerCase();
+    const botMentionsSecret = this.secretKeywords.some(w => botLower.includes(w));
+
+    const allowedRevealStages = ['purple', 'golden', 'red'];
+    const safeBotMessage = (botMentionsSecret && !allowedRevealStages.includes(this.myInternalState.stage))
+      ? "I can't tell you that yet."
+      : null;
+
     return {
       stageDirections: null,
       messageState: this.myInternalState,
-      modifiedMessage: null,
+      modifiedMessage: safeBotMessage,
       systemMessage: null,
       error: null,
       chatState: null
