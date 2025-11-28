@@ -1,4 +1,6 @@
-import { createStage } from '@chub-ai/sdk';
+import {ReactElement} from "react";
+import {StageBase, StageResponse, InitialData, Message} from "@chub-ai/stages-ts";
+import {LoadResponse} from "@chub-ai/stages-ts/dist/types/load";
 
 // --- Stage word pools ---
 const stageWords = {
@@ -19,7 +21,7 @@ const stageWords = {
   },
   golden: {
     adjectives: ["affectionate","bold","intoxicating","merciless","tender","lustful","protective","horny","adoring","shameless","depraved","obedient-breaking","brazen","fiery","devoted","punishing","corrupt","nurturing","gentle","loving","seductive","filthy","dominant","bold","enamored","obsessive","captivating","fervent","zealous","infatuated","passionate","excessive","fixated","unyielding","all-consuming","intense","worshipful","fanatical","fervid","clingy","obsessive-minded"],
-    nouns: ["Partner","Seducer","Beloved","Dom","Caregiver","Sweetheart","Playmate","Companion","Temptress","Owner","Guardian","Master","Protector","Mother","Lover","Confidant","Mistress","Nurturer","Sir","Lover","Admirer","Obsessed-lover","Slave","Fervent-companion","Heartmate","Devoted-one","Intense-lover","Affectionate-mate","Worshipful-companion","Adoring-lover","Possessed-one","Obsession","Heartthrob","Fanatic","Possessed-lover","Beloved-one","Infatuation","Fiery-heart","Worshipper","Fixated-one","All-consuming-one","Zealous-lover"],
+    nouns: ["Partner","Seducer","Beloved","Dom","Caregiver","Sweetheart","Playmate","Companion","Temptress","Owner","Guardian","Master","Protector","Mother","Lover","Confidant","Mistress","Nurturer","Sir","Lover","Admirer","Obsessed-lover","Fervent-companion","Heartmate","Devoted-one","Intense-lover","Affectionate-mate","Worshipful-companion","Adoring-lover","Possessed-one","Obsession","Heartthrob","Fanatic","Possessed-lover","Beloved-one","Infatuation","Fiery-heart","Worshipper","Fixated-one","All-consuming-one","Zealous-lover"],
     verbs: ["Kiss","Tease","Grope","Protect","Soothe","Seduce","Cuddle","Dominate","Caress","Command","Flirt","Embrace","Hold","Stroke","Punish","Nuzzle","Fuck","Comfort","Control","Reassure","Adore","Worship","Cling","Obsess","Entice","Devote","Crave","Cherish","Enslave","Overwhelm","Affectionate-touch","Satisfy","Possess","Devour","Obsession-act","Heart-command","Embrace-passion","Infatuate","Fascinate","Captivate"]
   },
   red: {
@@ -29,16 +31,7 @@ const stageWords = {
   }
 };
 
-// --- Stage tone pools matching adjectives ---
-const stageTones = {
-  white: stageWords.white.adjectives,
-  green: stageWords.green.adjectives,
-  purple: stageWords.purple.adjectives,
-  golden: stageWords.golden.adjectives,
-  red: stageWords.red.adjectives
-};
-
-// --- Expanded keyword categories ---
+// --- Keywords ---
 const keywords = {
   compliment: ["beautiful","handsome","cute","pretty","amazing","lovely","adorable","charming","gorgeous","stunning","radiant","sweet","delightful","elegant","brilliant","graceful","perfect","magical","nice","bubbly","sparkling","friendly","polished","adoring","adorable","bright","sunny","pleasant","cheerful","joyful","sparkly","bright-eyed"],
   romantic: ["i love you","i adore you","marry me","kiss","hug","crush","infatuated","romantic","devoted","adoring","affectionate","tender","passionate","devotion","soulmate","heart","love","desire","sweetheart","my only one","love-struck","true love","intimate","beloved","darling","fiery love","longing","captivated","obsessed","my heart","loving","amour","devotion-bound","lovebird","tender-hearted","adoration","passionate-love","fiery-heart","enchanted","adoring","devotee","romantic-flame","sweet-love","love-bound","heartthrob","love-mate","forever-love"],
@@ -56,48 +49,49 @@ const keywords = {
 // --- Stage thresholds ---
 const stageThresholds = { white: 5, green: 10, purple: 20, golden: 25, red: Infinity };
 
-// --- Define Chub stage using v1 ---
-export default createStage({
-  id: 'slowburnbih',
-  name: 'Slowburnbih',
+// --- Stage class ---
+export class Stage extends StageBase<any, any, any, any> {
+  myInternalState: any;
 
-  onMessage: (state, message, sendBotMessage, ai) => {
-    if (!state.stage) state.stage = 'white';
-    if (!state.counters) state.counters = { white: 0, green: 0, purple: 0, golden: 0, red: 0 };
-    if (!state.affection) state.affection = 0;
-
-    const stage = state.stage;
-
-    // --- Update counters and stage progression ---
-    state.counters[stage] += 1;
-    if (stage === 'white' && state.counters.white >= stageThresholds.white) state.stage = 'green';
-    else if (stage === 'green' && state.counters.green >= stageThresholds.green) state.stage = 'purple';
-    else if (stage === 'purple' && state.counters.purple >= stageThresholds.purple) state.stage = 'golden';
-    else if (stage === 'golden' && state.counters.golden >= stageThresholds.golden) state.stage = 'red';
-
-    // --- Affection keyword processing ---
-    Object.keys(keywords).forEach(category => {
-      const words = keywords[category];
-      if (words.some(w => message.text.toLowerCase().includes(w))) {
-        state.affection += 2;
-      }
-    });
-
-    // --- Prepare AI tone description ---
-    const toneDescription = `${stage} stage tone: intense, using adjectives, nouns, verbs from stageWords and tones from stageTones, around 40 words per message`;
-
-    // --- Generate AI message ---
-    const aiMessage = ai.generateMessage({
-      userText: message.text,
-      tone: toneDescription,
-      stageWords: stageWords[stage],
-      stageTones: stageTones[stage],
-      affection: state.affection
-    });
-
-    // --- Send AI message ---
-    sendBotMessage(aiMessage);
-
-    return state;
+  constructor(data: InitialData<any, any, any, any>) {
+    super(data);
+    const {characters, users, messageState} = data;
+    this.myInternalState = messageState != null ? messageState : {};
+    this.myInternalState.numUsers = Object.keys(users).length;
+    this.myInternalState.numChars = Object.keys(characters).length;
   }
-});
+
+  async load(): Promise<Partial<LoadResponse<any, any, any>>> {
+    return {success: true, error: null, initState: null, chatState: null};
+  }
+
+  async setState(state: any) {
+    if (state != null) this.myInternalState = {...this.myInternalState, ...state};
+  }
+
+  async beforePrompt(userMessage: Message): Promise<Partial<StageResponse<any, any>>> {
+    const msgText = userMessage.content.toLowerCase();
+
+    if (!this.myInternalState.stage) this.myInternalState.stage = 'white';
+    if (!this.myInternalState.counters) this.myInternalState.counters = { white: 0, green: 0, purple: 0, golden: 0, red: 0 };
+    if (!this.myInternalState.affection) this.myInternalState.affection = 0;
+
+    const stage = this.myInternalState.stage as keyof typeof stageWords;
+
+    // --- Update counters ---
+    this.myInternalState.counters[stage] += 1;
+
+    // --- Stage progression ---
+    if (stage === 'white' && this.myInternalState.counters.white >= stageThresholds.white) this.myInternalState.stage = 'green';
+    else if (stage === 'green' && this.myInternalState.counters.green >= stageThresholds.green) this.myInternalState.stage = 'purple';
+    else if (stage === 'purple' && this.myInternalState.counters.purple >= stageThresholds.purple) this.myInternalState.stage = 'golden';
+    else if (stage === 'golden' && this.myInternalState.counters.golden >= stageThresholds.golden) this.myInternalState.stage = 'red';
+
+    // --- Affection keywords ---
+    Object.keys(keywords).forEach(category => {
+      const words = keywords[category as keyof typeof keywords];
+      if (words.some(w => msgText.includes(w))) this.myInternalState.affection += 2;
+    });
+
+    // --- Stage directions for AI ---
+    const toneDescription = `${stage} stage tone: intense, using adjectives, nouns, verbs from stageWords and tones from stageTones. Write a
