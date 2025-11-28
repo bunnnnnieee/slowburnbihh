@@ -72,12 +72,7 @@ export class Stage extends StageBase<InitStateType, ChatStateType, MessageStateT
   }
 
   render(): ReactElement {
-    return (
-      <div style={{width: '100vw', height: '100vh', display: 'grid', alignItems: 'stretch', padding: '10px'}}>
-        <div>Hello World! Stage: {this.myInternalState.stage}</div>
-        <div>There are {this.myInternalState.numChars} characters and {this.myInternalState.numUsers} user(s).</div>
-        <div>Affection: {this.myInternalState.affection}</div>
-      </div>
-    );
+    // Only empty container; chat will render normally
+    return <div style={{width: '100vw', height: '100vh'}}></div>;
   }
 }
