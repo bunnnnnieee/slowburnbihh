@@ -1,4 +1,4 @@
-import { StageBase, InitialData, Message, StageResponse } from '@chub-ai/stages-ts';
+import { createStage } from '@chub-ai/sdk';
 
 // --- Stage word pools ---
 const stageWords = {
@@ -46,7 +46,7 @@ const keywords = {
   flirt: ["sexy","hot","tease","wink","tempting","seductive","alluring","provocative","naughty","flirt","sultry","spicy","fiery","temptation","coquettish","sizzling","sensual","risqué","captivating","playful","brazen","magnetic","enticing","provocative-act","bold","mischievous","fascinating","provocative-smile","tempting-glance","flirty-act","charming","intriguing","tantalizing","seduce","attractive"],
   angry: ["angry","mad","furious","enraged","irate","annoyed","cross","upset","frustrated","fuming","resentful","heated","outraged","vexed","hostile","ranting","furious","irritated","boiling","livid","wrathful","provoked","irascible","sore","heated","outraged","testy","snappy","snarky","volatile","agitated"],
   bossy: ["command","order","control","dominate","direct","manage","lead","instruct","supervise","guide","enforce","dictate","regulate","oversee","rule","dictator","boss","authority","marshal","administer","superintendent","chief","head","overlord","executive","superior","regent","commander","superior-officer","administrator","controller","director","captain","marshal","manager"],
-  sassy: ["sassy","cheeky","feisty","bold","spunky","cocky","provocative","playful","mischievous","sarcastic","witty","snarky","smart","flirty","tempting","brazen","impudent","bold-faced","confident","snappy","sass-master","sassy-act","smart-aleck","bratty","playful-spirit","sharp-tongued","bold-witted","cheeky-smile","cunning","provoking","waggish"],
+  sassy: ["sassy","cheeky","feisty","bold","spunky","cocky","provocative","playful","mischievous","sarcastic","witty","snarky","smart","flirty","tempting","brazen","impudent","bold-faced","confident","snappy","sass-master","smart-aleck","bratty","playful-spirit","sharp-tongued","bold-witted","cheeky-smile","cunning","provoking","waggish"],
   carer: ["caring","gentle","nurturing","supportive","protective","empathetic","loving","helpful","attentive","considerate","kind","compassionate","thoughtful","sweet","tender","adoring","soothing","affectionate","guardian","guardian-spirit","caregiving","patient","devoted","loving-spirit","heartful","solicitous","warm-hearted","concerned","reassuring","compassion","kind-hearted","soft","understanding","attentive-spirit","loving-mind","helping","friendly","devoted-helper","soothing-spirit"],
   strong: ["strong","powerful","resilient","capable","brave","bold","fearless","determined","tough","sturdy","enduring","tenacious","confident","unyielding","assertive","steadfast","courageous","mighty","dominant","vigorous","heroic","intense","potent","resolute","firm","undaunted","stalwart","forceful","influential","formidable","valiant","stout","robust","undaunted-spirit","sturdy-soul","heroic-mind","mighty-heart","bold-soul","dauntless","unyielding-spirit","fearless-mind"],
   sexy: ["sexy","hot","alluring","provocative","flirtatious","naughty","seductive","sizzling","enticing","risqué","desirable","tempting","playful","flirty","coquettish","sultry","tempting-glance","captivating","magnetic","irresistible","fiery","fascinating","charming","provocative-act","bold","flame","passionate","fascinating-act","sensual","intense","arousing","desirable-spirit","seduction","provocative-smile","tease","temptation","enticing-glance","hot-blooded","bold-seductive","appealing","alluring-act"],
@@ -56,73 +56,48 @@ const keywords = {
 // --- Stage thresholds ---
 const stageThresholds = { white: 5, green: 10, purple: 20, golden: 25, red: Infinity };
 
-// --- Define Chub stage as a CLASS and export it ---
-export class SlowburnbihStage extends StageBase<any, any, any, any> {
-    // Stage state is saved in myInternalState in V1.
-    myInternalState: {
-        stage: keyof typeof stageWords;
-        counters: Record<keyof typeof stageWords, number>;
-        affection: number;
-    };
+// --- Define Chub stage using v1 ---
+export default createStage({
+  id: 'slowburnbih',
+  name: 'Slowburnbih',
 
-    constructor(data: InitialData<any, any, any, any>) {
-        super(data);
-        // Initialize state from persisted messageState or default
-        const messageState = data.messageState || {};
+  onMessage: (state, message, sendBotMessage, ai) => {
+    if (!state.stage) state.stage = 'white';
+    if (!state.counters) state.counters = { white: 0, green: 0, purple: 0, golden: 0, red: 0 };
+    if (!state.affection) state.affection = 0;
 
-        this.myInternalState = {
-            // Your initialization logic
-            stage: messageState.stage || 'white',
-            counters: messageState.counters || { white: 0, green: 0, purple: 0, golden: 0, red: 0 },
-            affection: messageState.affection || 0,
-        };
-    }
+    const stage = state.stage;
 
-    async beforePrompt(userMessage: Message): Promise<Partial<StageResponse<any, any>>> {
-        const { myInternalState } = this;
-        const stage = myInternalState.stage;
+    // --- Update counters and stage progression ---
+    state.counters[stage] += 1;
+    if (stage === 'white' && state.counters.white >= stageThresholds.white) state.stage = 'green';
+    else if (stage === 'green' && state.counters.green >= stageThresholds.green) state.stage = 'purple';
+    else if (stage === 'purple' && state.counters.purple >= stageThresholds.purple) state.stage = 'golden';
+    else if (stage === 'golden' && state.counters.golden >= stageThresholds.golden) state.stage = 'red';
 
-        // --- 1. Update counters and stage progression ---
-        myInternalState.counters[stage] += 1;
-        if (stage === 'white' && myInternalState.counters.white >= stageThresholds.white) myInternalState.stage = 'green';
-        else if (stage === 'green' && myInternalState.counters.green >= stageThresholds.green) myInternalState.stage = 'purple';
-        else if (stage === 'purple' && myInternalState.counters.purple >= stageThresholds.purple) myInternalState.stage = 'golden';
-        else if (stage === 'golden' && myInternalState.counters.golden >= stageThresholds.golden) myInternalState.stage = 'red';
+    // --- Affection keyword processing ---
+    Object.keys(keywords).forEach(category => {
+      const words = keywords[category];
+      if (words.some(w => message.text.toLowerCase().includes(w))) {
+        state.affection += 2;
+      }
+    });
 
-        // --- 2. Affection keyword processing ---
-        Object.keys(keywords).forEach(category => {
-            const words = keywords[category as keyof typeof keywords];
-            if (words.some(w => userMessage.content.toLowerCase().includes(w))) {
-                myInternalState.affection += 2; // Adjust affection per match
-            }
-        });
+    // --- Prepare AI tone description ---
+    const toneDescription = `${stage} stage tone: intense, using adjectives, nouns, verbs from stageWords and tones from stageTones, around 40 words per message`;
 
-        // --- 3. AI generates stageDirections for the LLM prompt ---
-        // NOTE: In V1, we cannot use ai.generateMessage here.
-        // We must provide the tone as stageDirections to the main prompt.
-        const toneDescription = `${myInternalState.stage} stage tone: intense, using adjectives, nouns, verbs from stageWords and tones from stageTones. Affection score: ${myInternalState.affection}. Stage Words: ${JSON.stringify(stageWords[stage])}.`;
+    // --- Generate AI message ---
+    const aiMessage = ai.generateMessage({
+      userText: message.text,
+      tone: toneDescription,
+      stageWords: stageWords[stage],
+      stageTones: stageTones[stage],
+      affection: state.affection
+    });
 
-        return {
-            // Pass the updated state to be saved (persisted)
-            messageState: myInternalState,
-            // Inject the detailed stage tone instructions into the LLM's prompt
-            stageDirections: toneDescription,
-        };
-    }
-    
-    // NOTE: The render method is kept simple as V1 stages mainly use it for UI.
-    // The core logic happens in beforePrompt/afterResponse.
-    render(): ReactElement {
-        return (
-            <div style={{ padding: '10px', backgroundColor: '#2e2e2e', color: '#fff' }}>
-                <div>Stage: **{this.myInternalState.stage.toUpperCase()}**</div>
-                <div>Affection: **{this.myInternalState.affection}**</div>
-            </div>
-        );
-    }
-    
-    // NOTE: The V1 structure requires an explicit export for the class.
-}
+    // --- Send AI message ---
+    sendBotMessage(aiMessage);
 
-// Ensure the class is exported correctly at the end
-export default SlowburnbihStage;
+    return state;
+  }
+});
